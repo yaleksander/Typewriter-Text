@@ -1,6 +1,6 @@
 import { RPM } from "../path.js"
 
-const pluginName = "Typewriter";
+const pluginName = "Typewriter Text";
 
 // Typewriter plugin code - Start
 let isWaiting = false;
