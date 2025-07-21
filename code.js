@@ -45,47 +45,34 @@ class WaitUntilDoneTyping extends RPM.EventCommand.Base
 	}
 }
 
-function updateWindow(id, x, y, width, height, wholeText, count, sound, volume)
+function fixText(text, expr)
 {
-	var w = null;
-	const p = RPM.Manager.Stack.displayedPictures;
-	for (var i = 0; i < p.length; i++)
-		if (p[i][0] === id)
-			w = p[i][1];
-	if (count < wholeText.length)
-	{
-		var stride = 1;
-		var wait = 5;
-		if (!!w && w.typewriterTextPlugin_skip)
-			stride = wholeText.length;
-		RPM.Manager.Songs.playSound(sound, volume);
-		for (var i = stride; i > 0; i--)
-		{
-			if (wholeText[count] == "[")
-			{
-				const n = wholeText.indexOf("]", count);
-				if (wholeText.substr(count).search(/\[wait=\d*\]/) === 0)
-				{
-					wait = parseInt(wholeText.slice(count + 6, n));
-					wholeText = wholeText.substr(0, count) + wholeText.substr(n + 1);
-					break;
-				}
-				console.log(wholeText.substring(count, n + 1), isText(wholeText.substring(count, n + 1)));
-				if (n > 0 && !isText(wholeText.substring(count, n + 1)))
-					count = n;
-			}
-			count++;
-		}
-		spawnWindow(id, x, y, height, width, wholeText.substring(0, count));
-		setTimeout(updateWindow, wait, id, x, y, width, height, wholeText, count, sound, volume);
-	}
-	else
-		w.typewriterTextPlugin_doneTyping = true;
+	const a1 = text.split("[" + expr + "]");
+	const a2 = text.split("[" + expr + "=");
+	const a3 = text.split("[/" + expr + "]");
+	const n = a1.length + a2.length - a3.length - 1;
+	for (var i = 0; i < n; i++)
+		text += "[/" + expr + "]";
+	return text;
+}
+
+function fixTextAllExpr(text)
+{
+	text = fixText(text, "b");
+	text = fixText(text, "i");
+	text = fixText(text, "l");
+	text = fixText(text, "c");
+	text = fixText(text, "r");
+	text = fixText(text, "size");
+	text = fixText(text, "font");
+	text = fixText(text, "textcolor");
+	text = fixText(text, "backcolor");
+	text = fixText(text, "strokecolor");
+	return text;
 }
 
 function isText(text)
 {
-	console.log(text);
 	const m = new RPM.Graphic.Message(text, -1, 0, 0);
 	m.update();
 	for (var i = 0; i < m.graphics.length; i++)
@@ -100,6 +87,47 @@ function isText(text)
 	return false;
 }
 
+function updateWindow(id, x, y, width, height, wholeText, count, sound, volume, time)
+{
+	var w = null;
+	const p = RPM.Manager.Stack.displayedPictures;
+	for (var i = 0; i < p.length; i++)
+		if (p[i][0] === id)
+			w = p[i][1];
+	if (count < wholeText.length)
+	{
+		var stride = 1;
+		var wait = 5;
+		if (!!w && w.typewriterTextPlugin_skip)
+			stride = wholeText.length;
+		if (RPM.Core.Game.current.playTime.time > time + 20)
+		{
+			time = RPM.Core.Game.current.playTime.time;
+			RPM.Manager.Songs.playSound(sound, volume * 0.2);
+		}
+		for (var i = stride; i > 0; i--)
+		{
+			if (wholeText[count] == "[")
+			{
+				const n = wholeText.indexOf("]", count);
+				if (wholeText.substr(count).search(/\[wait=\d*\]/) === 0)
+				{
+					wait = parseInt(wholeText.slice(count + 6, n));
+					wholeText = wholeText.substr(0, count) + wholeText.substr(n + 1);
+					break;
+				}
+				if (n > 0)
+					count = n;
+			}
+			count++;
+		}
+		spawnWindow(id, x, y, height, width, fixTextAllExpr(wholeText.substr(0, count)));
+		setTimeout(updateWindow, wait, id, x, y, width, height, wholeText, count, sound, volume, time);
+	}
+	else
+		w.typewriterTextPlugin_doneTyping = true;
+}
+
 // Typewriter plugin code - Start
 RPM.Manager.Plugins.registerCommand(pluginName, "Show Text", (id, text, sound, volume) =>
 {
@@ -112,14 +140,17 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Show Text", (id, text, sound, v
 			break;
 		text = text.slice(0, i + 1) + "\n" + text.slice(i + 3);
 	}
+	const params = [8, "", -1, 0, 0];
+	for (var j = 0; j < RPM.Datas.Languages.listOrder.length; j++)
+		params.push(j + 1, text.replace(/\[wait=\d*\]/g, "").replace("\\n", "\n"));
 	const d = RPM.Datas.Systems.dbOptions;
-	updateWindow(id, d.v_x, d.v_y, d.v_h, d.v_w, text.replace("\\\\n", "\\n"), 0, sound.kind === RPM.Common.Enum.SongKind.Sound ? sound.id : 0, Math.max(0, Math.min(100, volume / 100)));
+	updateWindow(id, d.v_x, d.v_y, d.v_h, d.v_w, text.replace("\\\\n", "\\n"), 0, sound.kind === RPM.Common.Enum.SongKind.Sound ? sound.id : 0, Math.max(0, Math.min(100, volume / 100)), RPM.Core.Game.current.playTime.time);
 	const currentCommand = RPM.Core.ReactionInterpreter.currentReaction.currentCommand;
 	if (!currentCommand.typewriterTextPlugin_finishedText)
 	{
 		currentCommand.typewriterTextPlugin_finishedText = true;
 		const nextCommand = currentCommand.next;
-		const showText = new RPM.EventCommand.ShowText([8, "", -1, 0, 0, 1, text.replace(/\[wait=\d*\]/, "").replace("\\n", "\n")]);
+		const showText = new RPM.EventCommand.ShowText(params);
 		showText.initialize();
 		currentCommand.next = new RPM.Core.Node(currentCommand.parent, new WaitUntilDoneTyping(id));
 		currentCommand.next.next = new RPM.Core.Node(currentCommand.parent, showText);
