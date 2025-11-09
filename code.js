@@ -157,33 +157,6 @@ RPM.Manager.Plugins.registerCommand(pluginName, "Show Text", (id, text, sound, v
     }
 });
 
-// "Multiple text boxes" plugin code by @Russo (https://github.com/yaleksander/RPM-Plugin-Multiple-text-boxes)
-RPM.Core.WindowBox.prototype.draw = function (isChoice = false, windowDimension = this.windowDimension, contentDimension = this.contentDimension)
-{
-    if (this.content)
-        this.content.drawBehind(contentDimension[0], contentDimension[1], contentDimension[2], contentDimension[3]);
-
-    // Single line alteration from source code
-    !!this.customWindowSkin ? this.customWindowSkin.drawBox(windowDimension, this.selected, this.bordersVisible) : RPM.Datas.Systems.getCurrentWindowSkin().drawBox(windowDimension, this.selected, this.bordersVisible);
-
-    if (this.content)
-    {
-        if (!isChoice && this.limitContent)
-        {
-            RPM.Common.Platform.ctx.save();
-            RPM.Common.Platform.ctx.beginPath();
-            RPM.Common.Platform.ctx.rect(contentDimension[0], contentDimension[1] - RPM.Common.ScreenResolution.getScreenY(this.padding[3] / 2), contentDimension[2], contentDimension[3] + RPM.Common.ScreenResolution.getScreenY(this.padding[3]));
-            RPM.Common.Platform.ctx.clip();
-        }
-        if (isChoice)
-            this.content.drawChoice(contentDimension[0], contentDimension[1], contentDimension[2], contentDimension[3]);
-        else
-            this.content.draw(contentDimension[0], contentDimension[1], contentDimension[2], contentDimension[3]);
-        if (!isChoice && this.limitContent)
-            RPM.Common.Platform.ctx.restore();
-    }
-}
-
 function spawnWindow(id, x, y, width, height, text)
 {
     const pad = RPM.Datas.Systems.dbOptions;
